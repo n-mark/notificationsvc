@@ -1,0 +1,62 @@
+name: notification-svc
+
+services:
+  postgres3:
+    image: postgres:16-alpine
+    container_name: notification-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER:-notification}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-notification}
+      POSTGRES_DB: ${PG_DATABASE:-notification}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    ports:
+      - "${PG_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-notification} -d ${PG_DATABASE:-notification}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - shared-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notification-app
+    restart: unless-stopped
+    depends_on:
+      postgres3:
+        condition: service_healthy
+    environment:
+      BROKER_TYPE: ${BROKER_TYPE:-RABBITMQ}
+
+      PG_HOST: postgres3
+      PG_PORT: 5432
+      PG_USER: ${PG_USER:-notification}
+      PG_PASSWORD: ${PG_PASSWORD:-notification}
+      PG_DATABASE: ${PG_DATABASE:-notification}
+      PG_SSLMODE: disable
+
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USERNAME: ${RABBIT_USERNAME:-billing}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD:-billing}
+    ports:
+      - "${APP_PORT:-8082}:8080"
+    networks:
+      - shared-network
+
+volumes:
+  pgdata:
+    driver: local
+  rabbitdata:
+    driver: local
+
+networks:
+  shared-network:
+    external: true
+    name: shared-network
