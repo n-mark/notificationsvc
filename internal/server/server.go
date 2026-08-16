@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"billing-svc/internal/handlers/ver1"
+	"notification-svc/internal/handlers/ver1"
 )
 
 func newServer(addr string, h http.Handler) *http.Server {

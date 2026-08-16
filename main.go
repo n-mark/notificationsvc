@@ -1,6 +1,6 @@
 package main
 
-import "billing-svc/internal/app"
+import "notification-svc/internal/app"
 
 func main() {
 	app.RunCommonServer()

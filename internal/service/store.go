@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"billing-svc/internal/models"
+	"notification-svc/internal/models"
 )
 
 type Store interface {

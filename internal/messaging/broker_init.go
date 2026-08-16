@@ -1,26 +1,41 @@
 package messaging
 
 import (
-	"billing-svc/internal/config"
 	"fmt"
+	"notification-svc/internal/config"
 )
 
+// Source identifies where to consume from.
+//
+// For RabbitMQ only `Name` matters (it is the queue; routing happens
+// server-side via bindings). For Kafka `Name` is the topic, `Group` is the
+// consumer group id, and `EventTypes` replaces AMQP routing-key wildcards:
+// Kafka has no server-side pattern matching, so filtering by the `event_type`
+// field happens on the client. An empty `EventTypes` means "accept everything".
+type Source struct {
+	Name       string
+	Group      string
+	EventTypes []string
+}
+
 type Broker interface {
-	RegisterConsumer(dataSourceName string, h HandlerFunc)
+	RegisterConsumer(s Source, h HandlerFunc)
 	Run()
-	GetNotificationDataSourceName() string
+	GetNotificationSource() Source
+	GetAuthSource() Source
 }
 
 func InitBroker(cfg config.Config) (Broker, error) {
-	var b Broker
-
-	if "RABBITMQ" == cfg.BrokerType {
+	switch cfg.BrokerType {
+	case "RABBITMQ":
 		br, err := NewRabbitImpl(config.GetRabbitConfig())
 		if err != nil {
 			return nil, fmt.Errorf("can't init rabbitmq impl: %s", err)
 		}
-		b = br
+		return br, nil
+	case "KAFKA":
+		return NewKafkaImpl(config.GetKafkaConfig()), nil
+	default:
+		return nil, fmt.Errorf("unsupported BROKER_TYPE %q (supported: RABBITMQ, KAFKA)", cfg.BrokerType)
 	}
-
-	return b, nil
 }

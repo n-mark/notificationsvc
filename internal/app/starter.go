@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"billing-svc/internal/config"
-	"billing-svc/internal/handlers/ver1"
-	"billing-svc/internal/messaging"
-	"billing-svc/internal/server"
-	"billing-svc/internal/service"
-	"billing-svc/internal/store"
+	"notification-svc/internal/config"
+	"notification-svc/internal/handlers/ver1"
+	"notification-svc/internal/messaging"
+	"notification-svc/internal/server"
+	"notification-svc/internal/service"
+	"notification-svc/internal/store"
 )
 
 func RunCommonServer() {
@@ -46,7 +46,8 @@ func RunCommonServer() {
 	notificationService := service.NewNotificationService(pgStore)
 	h := ver1.NewOrderHandler(*notificationService)
 
-	b.RegisterConsumer(b.GetNotificationDataSourceName(), h.PostNotification)
+	b.RegisterConsumer(b.GetNotificationSource(), h.PostNotification)
+	b.RegisterConsumer(b.GetAuthSource(), h.PostUserCreated)
 
 	// HTTP and AMQP run in parallel; the AMQP Run() blocks until ctx is done
 	// (when it returns we shut down HTTP via the same ctx).

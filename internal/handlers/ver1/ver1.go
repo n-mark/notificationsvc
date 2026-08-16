@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"billing-svc/internal/models"
-	"billing-svc/internal/service"
+	"notification-svc/internal/models"
+	"notification-svc/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,13 +24,23 @@ func NewOrderHandler(order service.NotificationService) *OrderHandler {
 // --- broker-driven handlers (signature is dictated by messaging.HandlerFunc) ---
 
 func (h *OrderHandler) PostNotification(body []byte) (bool, error) {
-	payload := models.Notification{}
+	payload := models.OrderPaymentEvent{}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		slog.Error("failed to unmarshal notification", "error", err)
+		slog.Error("failed to unmarshal order payment event", "error", err)
 		return false, err
 	}
 
-	return h.notification.CreateNotification(context.Background(), payload)
+	return h.notification.ProcessOrderPaymentEvent(context.Background(), payload)
+}
+
+func (h *OrderHandler) PostUserCreated(body []byte) (bool, error) {
+	payload := models.UserCreatedEvent{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		slog.Error("failed to unmarshal user.created event", "error", err)
+		return false, err
+	}
+
+	return h.notification.ProcessUserCreatedEvent(context.Background(), payload)
 }
 
 // --- HTTP handlers (Gin) ---

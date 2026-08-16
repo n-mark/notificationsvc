@@ -32,7 +32,20 @@ services:
       postgres3:
         condition: service_healthy
     environment:
-      BROKER_TYPE: ${BROKER_TYPE:-RABBITMQ}
+      # RABBITMQ | KAFKA — переключение реализации брокера
+      BROKER_TYPE: ${BROKER_TYPE:-KAFKA}
+
+      # --- Kafka (общий кластер в shared-network) ---
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka-1:9092,kafka-2:9092,kafka-3:9092}
+      KAFKA_BILLING_TOPIC: "order-payment"
+      KAFKA_BILLING_GROUP: "notificationsvc.billing"
+      # замена биндинга payment.*
+      KAFKA_BILLING_EVENT_TYPES: "PAYMENT_SUCCESS,PAYMENT_FAILED"
+      KAFKA_AUTH_TOPIC: "auth"
+      KAFKA_AUTH_GROUP: "notificationsvc.auth"
+      KAFKA_AUTH_EVENT_TYPES: "user.created"
+
+      # --- RabbitMQ (legacy, при BROKER_TYPE=RABBITMQ) ---
 
       PG_HOST: postgres3
       PG_PORT: 5432
@@ -45,6 +58,11 @@ services:
       RABBIT_PORT: 5672
       RABBIT_USERNAME: ${RABBIT_USERNAME:-billing}
       RABBIT_PASSWORD: ${RABBIT_PASSWORD:-billing}
+      RABBIT_BILLING_EXCHANGE: "order-payment"
+      RABBIT_BILLING_CONSUMER_ROUTING_KEY: "payment.*"
+      RABBIT_AUTH_EXCHANGE: "auth"
+      RABBIT_AUTH_CONSUMER: "notificationsvc.auth.consumer"
+      RABBIT_AUTH_CONSUMER_ROUTING_KEY: "user.created"
     ports:
       - "${APP_PORT:-8082}:8080"
     networks:

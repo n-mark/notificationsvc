@@ -1,7 +1,7 @@
 package messaging
 
 import (
-	"billing-svc/internal/config"
+	"notification-svc/internal/config"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -19,8 +19,13 @@ type RabbitImpl struct {
 	cfg           config.RabbitConfig
 }
 
-func (r *RabbitImpl) GetNotificationDataSourceName() string {
-	return r.cfg.NotificationConsumer
+// RabbitMQ filters server-side via queue bindings, so no EventTypes here.
+func (r *RabbitImpl) GetNotificationSource() Source {
+	return Source{Name: r.cfg.NotificationConsumer}
+}
+
+func (r *RabbitImpl) GetAuthSource() Source {
+	return Source{Name: r.cfg.AuthConsumer}
 }
 
 func NewRabbitImpl(cfg config.RabbitConfig) (*RabbitImpl, error) {
@@ -53,7 +58,6 @@ func (r *RabbitImpl) declareExchange(ch *amqp.Channel, exchange string) error {
 	)
 }
 
-// TODO: вот здесь
 func (r *RabbitImpl) declareQueueAndBind(ch *amqp.Channel, queue string) error {
 	if _, err := ch.QueueDeclare(
 		queue,
@@ -66,42 +70,43 @@ func (r *RabbitImpl) declareQueueAndBind(ch *amqp.Channel, queue string) error {
 		return fmt.Errorf("declare queue %q: %w", queue, err)
 	}
 
-	if r.cfg.BillingExchange == "" {
-		return nil
-	}
-
-	rks := r.routingKeyFor(queue)
-	if len(rks) == 0 {
+	exchange, rks := r.exchangeAndRoutingKeysFor(queue)
+	if exchange == "" || len(rks) == 0 {
 		return nil
 	}
 
 	for _, rk := range rks {
-		if err := ch.QueueBind(queue, rk, r.cfg.BillingExchange, false, nil); err != nil {
-			return fmt.Errorf("bind queue %q to %q with rk %q: %w", queue, r.cfg.BillingExchange, rk, err)
+		if err := ch.QueueBind(queue, rk, exchange, false, nil); err != nil {
+			return fmt.Errorf("bind queue %q to %q with rk %q: %w", queue, exchange, rk, err)
 		}
 	}
 
 	return nil
 }
 
-func (r *RabbitImpl) routingKeyFor(queue string) []string {
+func (r *RabbitImpl) exchangeAndRoutingKeysFor(queue string) (string, []string) {
 	switch queue {
 	case r.cfg.NotificationConsumer:
-		return []string{r.cfg.BillingConsumerRoutingKey}
+		return r.cfg.BillingExchange, []string{r.cfg.BillingConsumerRoutingKey}
+	case r.cfg.AuthConsumer:
+		return r.cfg.AuthExchange, []string{r.cfg.AuthConsumerRoutingKey}
 	}
-	return []string{}
+	return "", nil
 }
 
-func (r *RabbitImpl) RegisterConsumer(queueName string, h HandlerFunc) {
-	r.consumers[queueName] = h
+func (r *RabbitImpl) RegisterConsumer(s Source, h HandlerFunc) {
+	r.consumers[s.Name] = h
 }
 
 func (r *RabbitImpl) Run() {
 	defer r.conn.Close()
 	defer r.publisher.Close()
 
-	exchangesToDeclare := []string{r.cfg.BillingExchange}
+	exchangesToDeclare := []string{r.cfg.BillingExchange, r.cfg.AuthExchange}
 	for _, exchange := range exchangesToDeclare {
+		if exchange == "" {
+			continue
+		}
 		if err := r.declareExchange(r.publisher, exchange); err != nil {
 			slog.Error("declare topology", "op", "exchange", "err", err)
 			return
@@ -115,7 +120,7 @@ func (r *RabbitImpl) Run() {
 			slog.Error("declare topology", "queue", queue, "err", err)
 			return
 		}
-		slog.Info("queue ready", "queue", queue, "exchange", r.cfg.BillingExchange)
+		slog.Info("queue ready", "queue", queue)
 	}
 
 	wg := &sync.WaitGroup{}
