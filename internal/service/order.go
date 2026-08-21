@@ -80,7 +80,7 @@ func (o *NotificationService) ProcessUserCreatedEvent(ctx context.Context, event
 
 	notification := models.Notification{
 		ID:      event.EventId,
-		UserId:  0, // auth-service does not send user id in the event
+		UserId:  event.UserId,
 		Message: event.Message,
 		Type:    event.NotificationType,
 	}

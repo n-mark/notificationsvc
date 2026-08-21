@@ -73,3 +73,21 @@ func (h *OrderHandler) ListNotificationsHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, orders)
 }
+
+// InboxMockHandler handles GET /api/v1/notification/inbox_mock/:id.
+// Temporary unprotected endpoint for e2e tests to fetch notifications by user id.
+func (h *OrderHandler) InboxMockHandler(c *gin.Context) {
+	idParam := c.Param("id")
+	userId, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id must be an integer"})
+		return
+	}
+
+	notifications, err := h.notification.ListOrders(c.Request.Context(), userId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, notifications)
+}

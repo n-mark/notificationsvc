@@ -20,6 +20,7 @@ type Notification struct {
 type OrderPaymentEvent struct {
 	EventId       uuid.UUID `json:"event_id"`
 	EventType     string    `json:"event_type"`
+	Version       string    `json:"version"`
 	OrderId       uuid.UUID `json:"order_id"`
 	UserId        int64     `json:"user_id"`
 	TransactionId uuid.UUID `json:"transaction_id"`
@@ -35,5 +36,6 @@ type UserCreatedEvent struct {
 	Message          string    `json:"message"`
 	Version          string    `json:"version"`
 	Email            string    `json:"email"`
+	UserId           int64     `json:"user_id"`
 	Payload          string    `json:"payload"`
 }

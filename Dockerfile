@@ -15,13 +15,15 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /out/order-svc ./
+    go build -trimpath -ldflags="-s -w" -o /out/notification-svc ./
 
 # --- runtime stage ---
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM alpine:3.20
 WORKDIR /app
 
-COPY --from=build /out/order-svc /app/order-svc
+RUN apk add --no-cache ca-certificates wget
 
-USER nonroot:nonroot
-ENTRYPOINT ["/app/order-svc"]
+COPY --from=build /out/notification-svc /app/notification-svc
+
+EXPOSE 8080
+ENTRYPOINT ["/app/notification-svc"]
